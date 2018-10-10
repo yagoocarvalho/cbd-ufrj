@@ -7,6 +7,8 @@ Created on Sun Oct  7 14:48:57 2018
 
 import os
 import csv
+import time
+import datetime
 
 
 ###################################################################################
@@ -29,10 +31,14 @@ HashPath = BDFilePath + "HashBD.txt"
 #caracter usado como enchimento de valores não-cheios de um registro
 paddingCharacter = "#"
 #tamanho de um registro(medido em caracteres)
-registrySize = 152
+registrySize = 153
+
 
 #Tamanho de um bloco de memória (medido em registros)
 blockSize = 5
+
+#Tamanho do head(em linhas)
+headSize = 5
 
 #Tamanhos máximos de cada atributo(for reference mostly)
 dicColunaTamanhoMax = {
@@ -50,6 +56,24 @@ dicColunaTamanhoMax = {
 	"AV": 2, #vem com um 0 antes, aparentemente
 	"AX": 3
 }
+
+dicColHeaderType = {
+        "CPF": "INTEGER(11)",
+        "SG_UF": "VARCHAR(2)",
+        "CD_CARGO": "INTEGER(2)",
+        'NR_CANDIDATO': "INTEGER(5)", 
+        'NM_CANDIDATO': "VARCHAR(70)", 
+        'NM_EMAIL': "VARCHAR(43)",
+        'NR_PARTIDO': "INTEGER(2)", 
+        'DT_NASCIMENTO': "DATE", 
+        'CD_GENERO': "INTEGER(1)", 
+        'CD_GRAU_INSTRUCAO': "INTEGER(1)", 
+        'CD_ESTADO_CIVIL': "INTEGER(1)", 
+        'CD_COR_RACA': "INTEGER(2)",
+        'CD_OCUPACAO': "VARCHAR(3)"
+}
+
+
 
 #Baseado no dic acima(CPF JOGADO PARA A PRIMEIRA POSICAO)
 maxColSizesList = [11,2,2,5,70,43,2,10,1,1,1,2,3]
@@ -119,6 +143,57 @@ def padRegistries(listOfRegistries):
     return listOfRegistries
 
 
+def MakeHEAD(headType):
+    string = "File structure: " + headType + "\n"
+    string += "Creation: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    string += "Last modification: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    string += "Schema: "
+    for key, value in dicColHeaderType.items():
+        string += key + "-" + value + "|"
+    string += "\nNumber of registries: 0\n"
+    
+    return string
+
+
+#StartingRegistry = index do registro inicial a ser buscado (0-based)
+def FetchBlock(DBFilePath, startingRegistry):
+    #posição de início de leitura dos dados
+    #TODO
+    #cursorBegin = startingR
+    block = []
+    with open(DBFilePath, 'r') as file:
+        #Pula o HEAD
+        for i in range(headSize):
+            file.readline()#HEAD possui tamanho variável, então pulamos a linha inteira
+            #Em termos de BD, seria o análogo à buscar o separador de registros, nesse caso, '\n'
+        
+        #Em seguida, move o ponteiro do arquivo para a posição correta(offset)
+        for i in range(registrySize*startingRegistry):
+            c = file.read(1) #vamos de 1 em 1 char para não jogar tudo de uma vez na memória
+        
+        #Após isso, faz um seek no número de blocos até preencher o bloco(ou acabar o arquivo)
+        
+        for i in range(blockSize):
+            registry = ""
+            for j in range(registrySize):
+                c = file.read(1)
+                #print(c)
+                if c == "": 
+                    print("FIM DO ARQUIVO")
+                    return block
+                registry+=c
+            print("Current registry: "+registry)
+            block += [registry]
+    return block
+
+
+
+
+###################################################################################
+######################## DB INITIALIZATION FUNCTIONS ##############################
+###################################################################################
+
+
 #Le o CSV e cria o arquivo do BD de Heap
 def CreateHeapBD(csvFilePath, heapFilePath):
     #Lê do CSV e preenche os registros com enchimento para criar o tamanho fixo
@@ -131,9 +206,18 @@ def CreateHeapBD(csvFilePath, heapFilePath):
     
     #preenche os valores direto no arquivo
     file = open(HeapPath, "w+")
+    file.write(MakeHEAD("HEAP"))
+    file.close()
+    
+    registryCounter = 0
+    #inserimos valor a valor com a função de inserção da Heap
     for row in valuesToLoad:
-        for cols in row:
-            file.write(cols)
+        HeapInsertSingleRecord(row)
+        registryCounter +=1
+    
+    #for row in valuesToLoad:
+    #    for cols in row:
+    #        file.write(cols) #Não chamamos
 
 
 
@@ -173,7 +257,7 @@ def HeapSelectSingleRecord(colName, value):
 
     #TODO: usa o offset pra ir olhando a coluna relevante no arquivo
     #TODO: Ver como fazer para pegar blocos de registros
-
+    
 
     print("Fim da busca.")
     print("Número de blocos varridos: " + numberOfBlocksUsed)
