@@ -247,7 +247,7 @@ def CreateHeapBD(csvFilePath, heapFilePath):
 #value = desired value
 #SQL Format: Select * from HeapTable WHERE colName = value
 #Retorna o PRIMEIRO registro onde o colName tenha o valor igual à value
-def HeapSelectSingleRecord(colName, value):
+def HeapSelectRecord(colName, value, singleRecordSelection = False):
     numberOfBlocksUsed = 0 #conta o número de vezes que "acessamos a memória do disco"
     registryFound = False
     endOfFile = False
@@ -258,9 +258,13 @@ def HeapSelectSingleRecord(colName, value):
     columnIndex = colHeadersList.index(colName) #pega o indice referente àquela coluna
 
     print("\nRunning query: ")
-    print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + ";\n\n")
+    if singleRecordSelection:
+        print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " LIMIT 1;\n\n")
+    else:
+        print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + ";\n\n")
 
     currentRegistry= 0#busca linear, sempre começamos do primeiro
+    results = []
     #TODO: Ver como fazer para pegar blocos de registros
     while not (registryFound or endOfFile):
         currentBlock = FetchBlock(HeapPath, currentRegistry)#pega 5 registros a partir do registro atual
@@ -275,16 +279,21 @@ def HeapSelectSingleRecord(colName, value):
         for i in range(len(currentBlock)):
             if currentBlock[i][columnIndex] == value:
                 print("Result found in registry " + str(currentRegistry+i) + "!")
-                
-                registryFound = True
-                break
+                results += [currentBlock[i]]
+                if singleRecordSelection:
+                    registryFound = True
+                    break
         #se não é EOF e não encontrou registro, repete operação com outro bloco
         currentRegistry +=blockSize
         
-    if endOfFile:
-        print("Não foi encontrado registro com valor "+colName+ " = " + value)
-    elif registryFound:
-        print(currentBlock[i])
+    if results == []:
+        print("Não foi encontrado registro com valor " +colName+ " = " + value)
+        
+    else:
+        print("Results found: \n")
+        for result in results:
+            print(result)
+            print("\n")
         
     print("Fim da busca.")
     print("Número de blocos varridos: " + str(numberOfBlocksUsed))
