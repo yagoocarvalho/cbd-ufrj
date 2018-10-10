@@ -142,6 +142,18 @@ def padRegistries(listOfRegistries):
             listOfRegistries[i][j] = padString(listOfRegistries[i][j], maxColSizesList[j])
     return listOfRegistries
 
+#Retira o padding dos campos de um registro, e retorna o registro em formato de lista
+#registryString = registro a ser limpo, em formato de string
+def CleanRegistry(registryString):
+    newRegistry = []
+    offset = 0
+    for i in range(len(maxColSizesList)):
+        #print(registryString[offset:offset+maxColSizesList[i]])
+        newRegistry += [registryString[offset:offset+maxColSizesList[i]].replace(paddingCharacter, "")]
+        
+        offset+=maxColSizesList[i]
+    return newRegistry
+
 
 def MakeHEAD(headType):
     string = "File structure: " + headType + "\n"
@@ -183,7 +195,7 @@ def FetchBlock(DBFilePath, startingRegistry):
                     return block
                 registry+=c
             print("Current registry: "+registry)
-            block += [registry]
+            block += [CleanRegistry(registry)]
     return block
 
 
