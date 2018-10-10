@@ -38,7 +38,7 @@ registrySize = 153
 blockSize = 5
 
 #Tamanho do head(em linhas)
-headSize = 5
+heapHeadSize = 5
 
 #Tamanhos máximos de cada atributo(for reference mostly)
 dicColunaTamanhoMax = {
@@ -132,7 +132,7 @@ def readFromFile(csvFilePath):
                 print(finalRow)
                 registros +=[finalRow]
                 lineCount+=1
-                if lineCount == 5: return registros #limita tamanho p/ testes
+                if lineCount == 15: return registros #limita tamanho p/ testes
     return registros
 
 #pega uma lista de registros(matriz bidimensional) e para cada elemento, preenche os espaços faltantes
@@ -175,7 +175,7 @@ def FetchBlock(DBFilePath, startingRegistry):
     block = []
     with open(DBFilePath, 'r') as file:
         #Pula o HEAD
-        for i in range(headSize):
+        for i in range(heapHeadSize):
             file.readline()#HEAD possui tamanho variável, então pulamos a linha inteira
             #Em termos de BD, seria o análogo à buscar o separador de registros, nesse caso, '\n'
         
@@ -191,10 +191,10 @@ def FetchBlock(DBFilePath, startingRegistry):
                 c = file.read(1)
                 #print(c)
                 if c == "": 
-                    print("FIM DO ARQUIVO")
+                    #print("FIM DO ARQUIVO")
                     return block
                 registry+=c
-            print("Current registry: "+registry)
+            #print("Current registry: "+registry)
             block += [CleanRegistry(registry)]
     return block
 
@@ -249,30 +249,45 @@ def CreateHeapBD(csvFilePath, heapFilePath):
 #Retorna o PRIMEIRO registro onde o colName tenha o valor igual à value
 def HeapSelectSingleRecord(colName, value):
     numberOfBlocksUsed = 0 #conta o número de vezes que "acessamos a memória do disco"
-    #TODO: Finish
+    registryFound = False
+    endOfFile = False
     
     if colName not in colHeadersList:
         print("Error: Column name not found in relation.")
         return
     columnIndex = colHeadersList.index(colName) #pega o indice referente àquela coluna
 
-    print("Running query: ")
-    print("SELECT * FROM TB_HEAP WHERE " + colName + " = " + value + ";")
+    print("\nRunning query: ")
+    print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + ";\n\n")
 
-    offset = 0
-    for i in range(len(maxColSizesList)):
-        #calcula offset
-        if i < columnIndex:
-            #coluna veio antes da procurada, adicionar seu tamanho ao offset
-            offset +=maxColSizesList[i]
-    print("Offset = " + offset)
-
-    #TODO: usa o offset pra ir olhando a coluna relevante no arquivo
+    currentRegistry= 0#busca linear, sempre começamos do primeiro
     #TODO: Ver como fazer para pegar blocos de registros
-    
-
+    while not (registryFound or endOfFile):
+        currentBlock = FetchBlock(HeapPath, currentRegistry)#pega 5 registros a partir do registro atual
+        if currentBlock == []:
+            endOfFile = True
+            break
+        
+        #mais um bloco varrido
+        numberOfBlocksUsed +=1
+            
+                                 
+        for i in range(len(currentBlock)):
+            if currentBlock[i][columnIndex] == value:
+                print("Result found in registry " + str(currentRegistry+i) + "!")
+                
+                registryFound = True
+                break
+        #se não é EOF e não encontrou registro, repete operação com outro bloco
+        currentRegistry +=blockSize
+        
+    if endOfFile:
+        print("Não foi encontrado registro com valor "+colName+ " = " + value)
+    elif registryFound:
+        print(currentBlock[i])
+        
     print("Fim da busca.")
-    print("Número de blocos varridos: " + numberOfBlocksUsed)
+    print("Número de blocos varridos: " + str(numberOfBlocksUsed))
 
 
 #DONE
