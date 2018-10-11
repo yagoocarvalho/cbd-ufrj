@@ -246,11 +246,17 @@ def CreateHeapBD(csvFilePath, heapFilePath):
 #colName = Desired column of the query (SEE LISTS ABOVE FOR COL NAMES)
 #value = desired value
 #SQL Format: Select * from HeapTable WHERE colName = value
-#Retorna o PRIMEIRO registro onde o colName tenha o valor igual à value
-def HeapSelectRecord(colName, value, singleRecordSelection = False):
+#singleRecordSelection = Retorna o PRIMEIRO registro onde 'colName' = à value se True
+def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray = False):
     numberOfBlocksUsed = 0 #conta o número de vezes que "acessamos a memória do disco"
     registryFound = False
     endOfFile = False
+    
+    values = ""
+    if valueIsArray:
+        for val in value:
+            values+= val + ", "
+        values = values[:len(values)-2]#tira ultima ', '
     
     if colName not in colHeadersList:
         print("Error: Column name not found in relation.")
@@ -259,9 +265,15 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False):
 
     print("\nRunning query: ")
     if singleRecordSelection:
-        print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " LIMIT 1;\n\n")
+        if valueIsArray:
+            print("\nSELECT * FROM TB_HEAP WHERE " + colName + " in (" + values + ") LIMIT 1;\n\n")
+        else:
+            print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " LIMIT 1;\n\n")
     else:
-        print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + ";\n\n")
+        if valueIsArray:
+            print("\nSELECT * FROM TB_HEAP WHERE " + colName + " in (" + values + ");\n\n")
+        else:
+            print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + ";\n\n")
 
     currentRegistry= 0#busca linear, sempre começamos do primeiro
     results = []
@@ -274,10 +286,9 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False):
         
         #mais um bloco varrido
         numberOfBlocksUsed +=1
-            
-                                 
+                      
         for i in range(len(currentBlock)):
-            if currentBlock[i][columnIndex] == value:
+            if (not valueIsArray and currentBlock[i][columnIndex] == value) or (valueIsArray and currentBlock[i][columnIndex] in value):
                 print("Result found in registry " + str(currentRegistry+i) + "!")
                 results += [currentBlock[i]]
                 if singleRecordSelection:
@@ -287,7 +298,10 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False):
         currentRegistry +=blockSize
         
     if results == []:
-        print("Não foi encontrado registro com valor " +colName+ " = " + value)
+        if valueIsArray:
+            print("Não foi encontrado registro com "+colName+ " in (" + values +")")
+        else:
+            print("Não foi encontrado registro com valor " +colName+ " = " + value)
         
     else:
         print("Results found: \n")
