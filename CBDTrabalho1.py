@@ -275,7 +275,7 @@ def CreateHeapBD(csvFilePath, heapFilePath):
 #value = desired value
 #SQL Format: Select * from HeapTable WHERE colName = value
 #singleRecordSelection = Retorna o PRIMEIRO registro onde 'colName' = à value se True
-def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray = False):
+def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray = False, secondColName = "", secondValue = ""):
     numberOfBlocksUsed = 0 #conta o número de vezes que "acessamos a memória do disco"
     registryFound = False
     endOfFile = False
@@ -291,17 +291,31 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray
         return
     columnIndex = colHeadersList.index(colName) #pega o indice referente àquela coluna
 
+    secondValuePresent = False
+
+
+    secondColumnIndex = -1
+    if secondColName != "" and secondValue != "":
+        secondColumnIndex = colHeadersList.index(secondColName)
+        secondValuePresent = True
+
     print("\nRunning query: ")
     if singleRecordSelection:
         if valueIsArray:
             print("\nSELECT * FROM TB_HEAP WHERE " + colName + " in (" + values + ") LIMIT 1;\n\n")
         else:
-            print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " LIMIT 1;\n\n")
+            if secondValuePresent:
+                print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " AND " + secondColName + "=" + secondValue + " LIMIT 1;\n\n")
+            else:
+                print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " LIMIT 1;\n\n")
     else:
         if valueIsArray:
             print("\nSELECT * FROM TB_HEAP WHERE " + colName + " in (" + values + ");\n\n")
         else:
-            print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + ";\n\n")
+            if secondValuePresent:
+                print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " AND " + secondColName + "=" + secondValue + ";\n\n")
+            else:
+                print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + ";\n\n")
 
     currentRegistry= 0#busca linear, sempre começamos do primeiro
     results = []
@@ -316,7 +330,7 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray
         numberOfBlocksUsed +=1
                       
         for i in range(len(currentBlock)):
-            if (not valueIsArray and currentBlock[i][columnIndex] == value) or (valueIsArray and currentBlock[i][columnIndex] in value):
+            if (not valueIsArray and ((not secondValuePresent and currentBlock[i][columnIndex] == value) or (secondValuePresent and currentBlock[i][columnIndex]==value and currentBlock[i][secondColumnIndex]==secondValue) ) ) or (valueIsArray and currentBlock[i][columnIndex] in value):
                 print("Result found in registry " + str(currentRegistry+i) + "!")
                 results += [currentBlock[i]]
                 if singleRecordSelection:
@@ -339,6 +353,11 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray
         
     print("Fim da busca.")
     print("Número de blocos varridos: " + str(numberOfBlocksUsed))
+
+
+
+
+
 
 
 #DONE
