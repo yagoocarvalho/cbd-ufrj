@@ -9,6 +9,7 @@ import os
 import csv
 import time
 import datetime
+import fileinput
 
 
 ###################################################################################
@@ -154,6 +155,33 @@ def CleanRegistry(registryString):
         offset+=maxColSizesList[i]
     return newRegistry
 
+# Method to insert a given record into the file. The record will be inserted immediately after the location.
+def insertLineIntoFile(record, location, filepath):
+    # Open the file
+    for line in fileinput.input(filepath, inplace=1):
+        # Check line number
+        linenum = fileinput.lineno()
+        # If we are in our desired location, append the new record to the current one. Else, just remove the line-ending character
+        if linenum == location:
+            line = line + record
+        else:
+            line = line.rstrip()
+        # write line in the output file
+        print(line)
+
+# Method to delete a record from the file.
+def deleteLineFromFile(location, filepath):
+    # Open the file
+    for line in fileinput.input(filepath, inplace=1):
+        # Check line number
+        linenum = fileinput.lineno()
+        # If we are in our desired location, append the new record to the current one. Else, just remove the line-ending character
+        if linenum == location:
+            continue
+        else:
+            line = line.rstrip()
+            # write line in the output file
+            print(line)
 
 def MakeHEAD(headType):
     string = "File structure: " + headType + "\n"
