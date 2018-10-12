@@ -41,8 +41,16 @@ registrySize = 153+1 #153 chars + escape key
 #Tamanho de um bloco de memoria (medido em registros)
 blockSize = 5
 
-#Tamanho do head(em linhas)
+#Tamanho do head do heap(em linhas)
 heapHeadSize = 5
+
+#Tamanho do head da lista ordenada(em linhas)
+orderedHeadSize = 5
+
+#Tamanho do head do hash(em linhas)
+hashHeadSize = 5
+
+
 
 #Tamanhos maximos de cada atributo(for reference mostly)
 dicColunaTamanhoMax = {
@@ -195,7 +203,7 @@ def MakeHEAD(headType, numRegistries):
     string += "Schema: "
     for key, value in dicColHeaderType.items():
         string += key + "-" + value + "|"
-    string += "\nNumber of registries: " + str(numRegistries) + "\n"
+    string += "Number of registries: " + str(numRegistries) + "\n"
     
     return string
 
@@ -210,7 +218,7 @@ def MakeHEAD2(headPath, headType, numRegistries):
     string += "Schema: "
     for key, value in dicColHeaderType.items():
         string += key + "-" + value + "|"
-    string += "\nNumber of registries: " + str(numRegistries) + "\n"
+    string += "Number of registries: " + str(numRegistries) + "\n"
     file.write(string)
     #return string
 
@@ -221,7 +229,7 @@ def UpdateHEADFile(headPath, headType, numRegistries):
         file = open(headPath, 'r')
     
         headContent = file.readlines()
-        print(headContent)
+        #print(headContent)
         headContent
         file.close()
         os.remove(headPath)
@@ -232,14 +240,14 @@ def UpdateHEADFile(headPath, headType, numRegistries):
         file.write(headContent[1])
         file.write("Last modification: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n")
         file.write(headContent[3])
-        file.write("\nNumber of registries: " + str(numRegistries) + "\n")
+        file.write("Number of registries: " + str(numRegistries) + "\n")
     else:
         #Doesn't exist, create it
         MakeHEAD2(headPath, headType, numRegistries)
 
 
 #Gets number of registries from HEAD file
-def getNumRegistries(DBHeadFilePath, headSize):
+def GetNumRegistries(DBHeadFilePath, headSize):
     #posiÃ§Ã£o de inÃ­cio de leitura dos dados
     #cursorBegin = startingR
     with open(DBHeadFilePath, 'r') as file:
@@ -348,6 +356,9 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray
 
     secondColumnIndex = -1
     if secondColName != "" and secondValue != "":
+        if secondColName not in colHeadersList:
+            print("Error: Second column name not found in relation")
+            return
         secondColumnIndex = colHeadersList.index(secondColName)
         secondValuePresent = True
 
@@ -371,7 +382,6 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray
 
     currentRegistry= 0#busca linear, sempre começamos do primeiro
     results = []
-    #TODO: Ver como fazer para pegar blocos de registros
     while not (registryFound or endOfFile):
         currentBlock = FetchBlock(HeapPath, currentRegistry)#pega 5 registros a partir do registro atual
         if currentBlock == []:
@@ -403,8 +413,8 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray
             print(result)
             print("\n")
         
-    print("Fim da busca.")
-    print("Número de blocos varridos: " + str(numberOfBlocksUsed))
+    print("End of search.")
+    print("Number of blocks fetched: " + str(numberOfBlocksUsed))
 
 
 
@@ -430,6 +440,7 @@ def HeapInsertSingleRecord(listOfValues):
             file.write(padString(listOfValues[i], maxColSizesList[i]))
         #por fim pulamos uma linha para o próximo registro
         file.write("\n")
+    UpdateHEADFile(HeapHeadPath, "Heap", GetNumRegistries(HeapHeadPath, heapHeadSize)+1)
 
 
 
@@ -437,6 +448,109 @@ def HeapInsertSingleRecord(listOfValues):
 ###################################################################################
 ############################ HEAP - DELETE FUNCTIONS ##############################
 ###################################################################################
+
+#colName = Desired column of the query (SEE LISTS ABOVE FOR COL NAMES)
+#value = desired value
+#SQL Format: Select * from HeapTable WHERE colName = value
+#singleRecordDeletion = Retorna o PRIMEIRO registro onde 'colName' = à value se True
+def HeapDeleteRecord(colName, value, singleRecordDeletion = False, valueIsArray = False, secondColName = "", secondValue = ""):
+    numberOfBlocksUsed = 0 #conta o número de vezes que "acessamos a memória do disco"
+    registryFound = False
+    endOfFile = False
+    
+    indexesToDelete = []
+    
+    values = ""
+    if valueIsArray:
+        for val in value:
+            values+= val + ", "
+        values = values[:len(values)-2]#tira ultima ', '
+    
+    if colName not in colHeadersList:
+        print("Error: Column name not found in relation.")
+        return
+    columnIndex = colHeadersList.index(colName) #pega o indice referente àquela coluna
+
+    secondValuePresent = False
+
+
+    secondColumnIndex = -1
+    if secondColName != "" and secondValue != "":
+        if secondColName not in colHeadersList:
+            print("Error: Second column name not found in relation")
+            return
+        secondColumnIndex = colHeadersList.index(secondColName)
+        secondValuePresent = True
+
+    print("\nRunning query: ")
+    if singleRecordDeletion:
+        if valueIsArray:
+            print("\nDELETE FROM TB_HEAP WHERE " + colName + " in (" + values + ") LIMIT 1;\n\n")
+        else:
+            if secondValuePresent:
+                print("\nDELETE FROM TB_HEAP WHERE " + colName + " = " + value + " AND " + secondColName + "=" + secondValue + " LIMIT 1;\n\n")
+            else:
+                print("\nDELETE FROM TB_HEAP WHERE " + colName + " = " + value + " LIMIT 1;\n\n")
+    else:
+        if valueIsArray:
+            print("\nDELETE FROM TB_HEAP WHERE " + colName + " in (" + values + ");\n\n")
+        else:
+            if secondValuePresent:
+                print("\nDELETE FROM TB_HEAP WHERE " + colName + " = " + value + " AND " + secondColName + "=" + secondValue + ";\n\n")
+            else:
+                print("\nDELETE FROM TB_HEAP WHERE " + colName + " = " + value + ";\n\n")
+
+    currentRegistry= 0#busca linear, sempre começamos do primeiro
+    results = [] #retornar os deletados
+    while not (registryFound or endOfFile):
+        currentBlock = FetchBlock(HeapPath, currentRegistry)#pega 5 registros a partir do registro atual
+        if currentBlock == []:
+            endOfFile = True
+            break
+        
+        #mais um bloco varrido
+        numberOfBlocksUsed +=1
+                      
+        for i in range(len(currentBlock)):
+            if (not valueIsArray and ((not secondValuePresent and currentBlock[i][columnIndex] == value) or (secondValuePresent and currentBlock[i][columnIndex]==value and currentBlock[i][secondColumnIndex]==secondValue) ) ) or (valueIsArray and currentBlock[i][columnIndex] in value):
+                print("Result found in registry " + str(currentRegistry+i) + "!")
+                results += [currentBlock[i]]
+                #salvar index para deletar posteriormente
+                indexesToDelete+=[currentRegistry+i]
+
+                if singleRecordDeletion:
+                    DeleteLineFromFile(currentRegistry+i, HeapPath)
+                    registryFound = True
+                    break
+        #se não é EOF e não encontrou registro, repete operação com outro bloco
+        currentRegistry +=blockSize
+        
+    if results == []:
+        if valueIsArray:
+            print("Não foi encontrado registro com "+colName+ " in (" + values +")")
+        else:
+            print("Não foi encontrado registro com valor " +colName+ " = " + value)
+        
+    else:
+        print(indexesToDelete)
+        
+        for reg in reversed(indexesToDelete):
+            DeleteLineFromFile(reg, HeapPath)
+        print("\n\nRegistries deleted: \n")
+        for result in results:
+            print(result)
+            print("\n")
+    
+    print("End of query.")
+    print("Number of blocks fetched: " + str(numberOfBlocksUsed))
+
+    #updateHEAD with new number of registries if there were deletions
+    if results != []:
+        UpdateHEADFile(HeapHeadPath, "Heap", GetNumRegistries(HeapHeadPath, heapHeadSize)-len(results))
+    
+
+
+
 
 
 ###################################################################################
@@ -581,7 +695,7 @@ def OrderedSelectSingleRecord(colName, value):
     print("SELECT * FROM TB_ORDERED WHERE " + colName + " = " + value + ";")
 
     # Obtem o numero de blocos do BD
-    numBlocks = math.ceil(getNumRegistries(OrderedPath)/blockSize)
+    numBlocks = math.ceil(GetNumRegistries(OrderedPath)/blockSize)
     
     # Verifica se o campo procurado eh equivalente ao campo pelo qual o banco foi ordenado
     # Caso seja, utilizar busca binaria
