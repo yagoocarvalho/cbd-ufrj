@@ -18,7 +18,7 @@ import fileinput
 
 
 #Caminho dos arquivos de candidatos
-CandidatesFilePath = "C:/Users/BRC/Downloads/consulta_cand_2018/consulta_cand_2018_"
+CandidatesFilePath = "data/consulta_cand_2018_"
 SPPath = CandidatesFilePath + "SP.csv"
 RJPath = CandidatesFilePath + "RJ.csv"
 MGPath = CandidatesFilePath + "MG.csv"
@@ -248,7 +248,7 @@ def UpdateHEADFile(headPath, headType, numRegistries):
 
 #Gets number of registries from HEAD file
 def GetNumRegistries(DBHeadFilePath, headSize):
-    #posiÃ§Ã£o de inÃ­cio de leitura dos dados
+    #posição de início de leitura dos dados
     #cursorBegin = startingR
     with open(DBHeadFilePath, 'r') as file:
         for i in range(headSize-1):
@@ -620,7 +620,7 @@ def binarySearch(columnIndex, value, maxNumBlocks, singleRecordSelection = False
     r = maxNumBlocks
     while l <= r: 
         # Pega o numero do bloco do meio
-        mid = math.ceil(l + (r - l)/2); 
+        mid = math.ceil(l + (r - l)/2)
                 
         # 0-based
         # Busca o registro
@@ -695,7 +695,7 @@ def OrderedSelectSingleRecord(colName, value):
     print("SELECT * FROM TB_ORDERED WHERE " + colName + " = " + value + ";")
 
     # Obtem o numero de blocos do BD
-    numBlocks = math.ceil(GetNumRegistries(OrderedPath)/blockSize)
+    numBlocks = math.ceil(GetNumRegistries(OrderedPath, 0)/blockSize)
     
     # Verifica se o campo procurado eh equivalente ao campo pelo qual o banco foi ordenado
     # Caso seja, utilizar busca binaria
@@ -724,12 +724,176 @@ def OrderedSelectSingleRecord(colName, value):
 ###################################################################################
 
 
+###################################################################################
+##################################### HASH ########################################
+###################################################################################
+# Bucket size in blocks 
+bucketSize      = 3 #10
+# Number of needed buckets
+numberOfBuckets = 2 #220
+
+hashTablePath = "BD/HashTable.txt"
+
+#Le o CSV e cria o arquivo do BD de Hash
+def CreateHashBD(csvFilePath):
+
+    #Reads the csv file and create the records to be inserted, with fixed length
+    valuesToLoad = padRegistries(readFromFile(csvFilePath))
+    
+    # Delete previous database
+    if os.path.exists(HashPath):
+        os.remove(HashPath)
+    
+    # Create empty file to reserve disk space
+    with open(HashPath, 'wb') as hashFile:
+        hashFile.seek((bucketSize * numberOfBuckets * blockSize * 153) - 1)
+        hashFile.write(b'\0')
+    
+    # Create HEAD to File
+    MakeHEAD2(HashHeadPath, "Hash", 0)
+    
+    registryCounter = 0
+    #inserimos valor a valor com a função de inserção do Hash
+    for row in valuesToLoad:
+        registry = Registry(row, False)
+        HashInsertRecord(registry)
+        registryCounter +=1
+
+def CalculateHashKey(registry):
+    return int(registry.docNumber)
+
+def CalculateHashAddress(hashKey):
+    return hashKey % numberOfBuckets
+    
+class Block:
+
+    def __init__(self, registriesBytes):
+        self.listOfRegistries = []
+        #iterate over registries bytes
+        for b in range(0, len(registriesBytes), 153):
+            print(registriesBytes[b])
+            self.listOfRegistries += [Registry(registriesBytes[b : b + 153], True)]
+
+    def SizeInBytes(self):
+        sizeInBytes = 0
+        for registry in self.listOfRegistries:
+            sizeInBytes += registry.sizeInBytes
+
+        return sizeInBytes
+
+    def FirstEmptyRecordIndex(self):
+        for i in range(len(self.listOfRegistries)):
+            try:
+                if (self.listOfRegistries[i].docNumber.index('\x00') >= 0):
+                    return i
+            except:
+                pass
+        return -1
+
+    def __str__(self):
+        str_block = ""
+        for registry in self.listOfRegistries:
+            str_block += str(registry)
+        
+        return str_block
+
+class Registry:
+
+    def __init__(self, listOfValues, dataInBytes):
+        if (not dataInBytes):
+            self.docNumber        = listOfValues[0]
+            self.state            = listOfValues[1]
+            self.jobType          = listOfValues[2]
+            self.candidateNumber  = listOfValues[3]
+            self.candidateName    = listOfValues[4]
+            self.candidateEmail   = listOfValues[5]
+            self.partyNumber      = listOfValues[6]
+            self.birthDate        = listOfValues[7]
+            self.gender           = listOfValues[8]
+            self.instructionLevel = listOfValues[9]
+            self.maritalStatus    = listOfValues[10]
+            self.colorRace        = listOfValues[11]
+            self.ocupation        = listOfValues[12]
+        else:
+            listOfValues = listOfValues.decode("utf-8")
+            self.docNumber        = listOfValues[0:11]
+            self.state            = listOfValues[11:13]
+            self.jobType          = listOfValues[13:15]
+            self.candidateNumber  = listOfValues[15:20]
+            self.candidateName    = listOfValues[20:90]
+            self.candidateEmail   = listOfValues[90:133]
+            self.partyNumber      = listOfValues[133:135]
+            self.birthDate        = listOfValues[135:145]
+            self.gender           = listOfValues[145:146]
+            self.instructionLevel = listOfValues[146:147]
+            self.maritalStatus    = listOfValues[147:148]
+            self.colorRace        = listOfValues[148:150]
+            self.ocupation        = listOfValues[150:153]
+
+        self.sizeInBytes = len(str(self))
+    
+    def __str__(self):
+        return self.docNumber + self.state + self.jobType + self.candidateNumber + self.candidateName + self.candidateEmail + self.partyNumber + self.birthDate + self.gender + self.instructionLevel + self.maritalStatus + self.colorRace + self.ocupation
+
+###################################################################################
+############################ HASH - SELECT FUNCTIONS ##############################
+###################################################################################
+
+def HashSelectRecord():
+    pass
+
+###################################################################################
+############################ HASH - INSERT FUNCTIONS ##############################
+###################################################################################
+
+def HashInsertRecord(registry):
+    freeSpaceIndex = -1
+
+    #calculate hash key and address
+    hashKey     = CalculateHashKey(registry)
+    hashAddress = CalculateHashAddress(hashKey)
+
+    # Init the start offset
+    startingOffset = bucketSize * hashAddress
+
+    # Place the record the first block with enough space starting from the file
+    with open(HashPath, 'r+b') as hashFile:
+        # Search for the right position
+        hashFile.seek(startingOffset)
+        # Check if there is a colision
+        currentBlock = Block(hashFile.read((blockSize * 153)))
+        
+        # Search for the first free space in the block
+        freeSpaceIndex = currentBlock.FirstEmptyRecordIndex()
+
+        if (freeSpaceIndex >= 0):
+            # Set the cursor to the beginig of the block again
+            hashFile.seek(startingOffset)
+            # Place the new record in the right place in the block
+            currentBlock.listOfRegistries[freeSpaceIndex] = registry
+        else:
+            #If we have bucket overflow, change the startting offset to the next bucket and try again in the next bucket
+            startingOffset += (blockSize * 153)
+        
+        # Re-write block to the file
+        writtenSize = hashFile.write(str(currentBlock).encode('utf-8'))
+        print(writtenSize)
+
+
+
+###################################################################################
+############################ HASH - DELETE FUNCTIONS ##############################
+###################################################################################
+
+def HashDeleteRecord(record):
+    pass
 
 ###################################################################################
 ################################### MAIN ##########################################
 ###################################################################################
 
-
+CreateHashBD(RJPath)
+#HashSelectRecord()
 #CreateOrderedBD(RJPath, False)
 
 #print('-----')
