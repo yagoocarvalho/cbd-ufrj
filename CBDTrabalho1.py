@@ -24,7 +24,7 @@ RJPath = CandidatesFilePath + "RJ.csv"
 MGPath = CandidatesFilePath + "MG.csv"
 
 #caminho dos arquivos 
-BDFilePath = "C:/Users/BRC/Downloads/consulta_cand_2018/BD/"
+BDFilePath = "BD/"
 HeapPath = BDFilePath + "HeapBD.txt"
 HeapHeadPath = BDFilePath + "HeapHEAD.txt"
 OrderedPath = BDFilePath + "OrderedBD.txt"
@@ -35,7 +35,7 @@ HashHeadPath = BDFilePath+ "HashHEAD.txt"
 #caracter usado como enchimento de valores nao-cheios de um registro
 paddingCharacter = "#"
 #tamanho de um registro(medido em caracteres)
-registrySize = 153
+registrySize = 153+1 #153 chars + escape key
 
 
 #Tamanho de um bloco de memoria (medido em registros)
@@ -153,13 +153,13 @@ def CleanRegistry(registryString):
     offset = 0
     for i in range(len(maxColSizesList)):
         #print(registryString[offset:offset+maxColSizesList[i]])
-        newRegistry += [registryString[offset:offset+maxColSizesList[i]].replace(paddingCharacter, "")]
+        newRegistry += [registryString[offset:offset+maxColSizesList[i]].replace(paddingCharacter, "").replace("\n", "")]
         
         offset+=maxColSizesList[i]
     return newRegistry
 
-# Method to insert a given record into the file. The record will be inserted immediately after the location.
-def insertLineIntoFile(record, location, filepath):
+# Method to insert a given record into the file. The record will be inserted at the position/line specified(0-based)
+def InsertLineIntoFile(record, location, filepath):
     # Open the file
     for line in fileinput.input(filepath, inplace=1):
         # Check line number
@@ -172,14 +172,15 @@ def insertLineIntoFile(record, location, filepath):
         # write line in the output file
         print(line)
 
-# Method to delete a record from the file.
-def deleteLineFromFile(location, filepath):
+
+# Method to delete a record from the file. (0-based)
+def DeleteLineFromFile(location, filepath):
     # Open the file
     for line in fileinput.input(filepath, inplace=1):
         # Check line number
         linenum = fileinput.lineno()
         # If we are in our desired location, append the new record to the current one. Else, just remove the line-ending character
-        if linenum == location:
+        if linenum == location+1:
             continue
         else:
             line = line.rstrip()
@@ -200,6 +201,8 @@ def MakeHEAD(headType, numRegistries):
 
 
 def MakeHEAD2(headPath, headType, numRegistries):
+    if os.path.exists(headPath):
+        os.remove(headPath)
     file = open(headPath, 'a')
     string = "File structure: " + headType + "\n"
     string += "Creation: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n"
@@ -212,23 +215,27 @@ def MakeHEAD2(headPath, headType, numRegistries):
     #return string
 
 
-
-def UpdateHEADFile(headPath, numRegistries):
-    file = open(headPath, 'r')
+#Updates de HEAD File with new timestamp and current number of Registries
+def UpdateHEADFile(headPath, headType, numRegistries):
+    if os.path.exists(headPath):
+        file = open(headPath, 'r')
     
-    headContent = file.readlines()
-    print(headContent)
-    headContent
-    file.close()
-    os.remove(headPath)
-    
-    #recria ela com as alteracoes
-    file = open(headPath, 'a')
-    file.write(headContent[0])
-    file.write(headContent[1])
-    file.write("Last modification: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n")
-    file.write(headContent[3])
-    file.write("\nNumber of registries: " + str(numRegistries) + "\n")
+        headContent = file.readlines()
+        print(headContent)
+        headContent
+        file.close()
+        os.remove(headPath)
+        
+        #recria ela com as alteracoes
+        file = open(headPath, 'a')
+        file.write(headContent[0])
+        file.write(headContent[1])
+        file.write("Last modification: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n")
+        file.write(headContent[3])
+        file.write("\nNumber of registries: " + str(numRegistries) + "\n")
+    else:
+        #Doesn't exist, create it
+        MakeHEAD2(headPath, headType, numRegistries)
 
 
 #Gets number of registries from HEAD file
@@ -281,19 +288,20 @@ def FetchBlock(DBFilePath, startingRegistry):
 
 
 #Le o CSV e cria o arquivo do BD de Heap
-def CreateHeapBD(csvFilePath, heapFilePath):
+def CreateHeapBD(csvFilePath):
     #Lê do CSV e preenche os registros com enchimento para criar o tamanho fixo
     valuesToLoad = padRegistries(readFromFile(csvFilePath))
     
     #apaga o conteúdo existente no momento(se houver)
-    if os.path.exists(heapFilePath):
-        os.remove(heapFilePath)
+    if os.path.exists(HeapPath):
+        os.remove(HeapPath)
     
-    
+    #make HEAD File
+    MakeHEAD2(HeapHeadPath, "Heap", 0)
     #preenche os valores direto no arquivo
-    file = open(HeapPath, "w+")
-    file.write(MakeHEAD("HEAP"))
-    file.close()
+    #file = open(HeapPath, "w+")
+    #file.write(MakeHEAD("HEAP"))
+    #file.close()
     
     registryCounter = 0
     #inserimos valor a valor com a função de inserção da Heap
@@ -301,9 +309,7 @@ def CreateHeapBD(csvFilePath, heapFilePath):
         HeapInsertSingleRecord(row)
         registryCounter +=1
     
-    #for row in valuesToLoad:
-    #    for cols in row:
-    #        file.write(cols) #Não chamamos
+    UpdateHEADFile(HeapHeadPath, "HEAP", registryCounter)
 
 
 
@@ -422,6 +428,8 @@ def HeapInsertSingleRecord(listOfValues):
         #assumindo que estão na ordem correta já
         for i in range(1, len(listOfValues)):
             file.write(padString(listOfValues[i], maxColSizesList[i]))
+        #por fim pulamos uma linha para o próximo registro
+        file.write("\n")
 
 
 
