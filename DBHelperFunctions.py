@@ -26,8 +26,6 @@ SPPath = CandidatesFilePath + "SP.csv"
 RJPath = CandidatesFilePath + "RJ.csv"
 MGPath = CandidatesFilePath + "MG.csv"
 RSPath = CandidatesFilePath + "RS.csv"
-DFPath = CandidatesFilePath + "DF.csv"
-PRPath = CandidatesFilePath + "PR.csv"
 
 #caminho dos arquivos 
 BDFilePath = "BD/"
@@ -109,7 +107,7 @@ relevantColsList = [10, 13, 16, 17, 20, 21, 27, 38, 41, 43, 45, 47, 49]
 
 #retorna se e uma coluna relevante dentro do Excel(baseado nas colunas escolhidas acima)
 def IsRelevantRow(rowNumber):
-    #print(rowNumber)
+    #
     return rowNumber in relevantColsList
 
 #calcula o tamanho do registro novamente, caso necessario
@@ -142,13 +140,6 @@ def ReadFirstRegistriesFromCSV(CSVFilePath, numberOfRegistriesToRead):
         for j in range(len(maxColSizesList)):
             string+=valuesToLoad[i][j]
         valuesToLoad[i]=string
-    return valuesToLoad[:numberOfRegistriesToRead]
-
-#Le os primeiros N registros e retorna os mesmos em matriz de valores
-def ReadFirstRegistriesFromCSVList(CSVFilePath, numberOfRegistriesToRead):
-    #Lê do CSV e preenche os registros com enchimento para criar o tamanho fixo
-    valuesToLoad = PadRegistries(ReadFromFile(CSVFilePath))
-    
     return valuesToLoad[:numberOfRegistriesToRead]
 
 #Lê o arquivo desejado e retorna uma lista com todos os registros relevantes do mesmo
@@ -233,11 +224,8 @@ def MakeHEADString(headType, numRegistries):
     string += "Creation: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n"
     string += "Last modification: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n"
     string += "Schema: "
-    s = ""
     for key, value in dicColHeaderType.items():
         string += key + "-" + value + "|"
-        
-    string = s + "\n"
     string += "Number of registries: " + str(numRegistries) + "\n"
     
     return string
@@ -251,11 +239,8 @@ def MakeHEAD(headPath, headType, numRegistries):
     string += "Creation: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n"
     string += "Last modification: " + datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S') + "\n"
     string += "Schema: "
-    s = ""
     for key, value in dicColHeaderType.items():
-        s += key + "-" + value + "|"
-        
-    string = s + "\n"
+        string += key + "-" + value + "|"
     string += "Number of registries: " + str(numRegistries) + "\n"
     file.write(string)
     #return string
