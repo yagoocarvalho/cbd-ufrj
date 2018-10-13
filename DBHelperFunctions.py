@@ -295,3 +295,34 @@ def FetchBlock(DBFilePath, startingRegistry):
             block += [CleanRegistry(registry)]
     return block
 
+
+#StartingRegistry = index do registro inicial a ser buscado (0-based)
+def FetchBlock2(DBFilePath, startingRegistry, registryCustomSize):
+    #posicao de inicio de leitura dos dados
+    #TODO
+    #cursorBegin = startingR
+    block = []
+    with open(DBFilePath, 'r') as file:
+        #Pula o HEAD(UPDATE: HEAD is in another cast....file)
+        #for i in range(heapHeadSize):
+        #    file.readline()#HEAD possui tamanho variável, então pulamos a linha inteira
+            #Em termos de BD, seria o análogo à buscar o separador de registros, nesse caso, '\n'
+        
+        #Em seguida, move o ponteiro do arquivo para a posição correta(offset)
+        for i in range(registryCustomSize*startingRegistry):
+            c = file.read(1) #vamos de 1 em 1 char para não jogar tudo de uma vez na memória
+        
+        #Após isso, faz um seek no número de blocos até preencher o bloco(ou acabar o arquivo)
+        
+        for i in range(blockSize):
+            registry = ""
+            for j in range(registryCustomSize):
+                c = file.read(1)
+                #print(c)
+                if c == "": 
+                    #print("FIM DO ARQUIVO")
+                    return block
+                registry+=c
+            #print("Current registry: "+registry)
+            block += [CleanRegistry(registry)]
+    return block

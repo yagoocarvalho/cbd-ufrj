@@ -71,9 +71,7 @@ def HeapSelectRecord(colName, value, singleRecordSelection = False, valueIsArray
         print("Error: Column name not found in relation.")
         return
     columnIndex = aux.colHeadersList.index(colName) #pega o indice referente àquela coluna
-
     secondValuePresent = False
-
 
     secondColumnIndex = -1
     if secondColName != "" and secondValue != "":
@@ -576,6 +574,95 @@ class Registry:
 def HashSelectRecord(searchKey):
     pass
     
+
+
+
+
+
+
+#colName = Desired column of the query (SEE LISTS ABOVE FOR COL NAMES)
+#value = desired value
+#SQL Format: Select * from HeapTable WHERE colName = value
+#singleRecordSelection = Retorna o PRIMEIRO registro onde 'colName' = à value se True
+def HashLinearSelectRecord(colName, value, customRegistrySize, singleRecordSelection = False, valueIsArray = False, secondColName = "", secondValue = ""):
+    numberOfBlocksUsed = 0 #conta o número de vezes que "acessamos a memória do disco"
+    registryFound = False
+    endOfFile = False
+    
+    values = ""
+    if valueIsArray:
+        for val in value:
+            values+= val + ", "
+        values = values[:len(values)-2]#tira ultima ', '
+    
+    if colName not in aux.colHeadersList:
+        print("Error: Column name not found in relation.")
+        return
+    columnIndex = aux.colHeadersList.index(colName) #pega o indice referente àquela coluna
+    secondValuePresent = False
+
+    secondColumnIndex = -1
+    if secondColName != "" and secondValue != "":
+        if secondColName not in aux.colHeadersList:
+            print("Error: Second column name not found in relation")
+            return
+        secondColumnIndex = aux.colHeadersList.index(secondColName)
+        secondValuePresent = True
+
+    print("\nRunning query: ")
+    if singleRecordSelection:
+        if valueIsArray:
+            print("\nSELECT * FROM TB_HEAP WHERE " + colName + " in (" + values + ") LIMIT 1;\n\n")
+        else:
+            if secondValuePresent:
+                print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " AND " + secondColName + "=" + secondValue + " LIMIT 1;\n\n")
+            else:
+                print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " LIMIT 1;\n\n")
+    else:
+        if valueIsArray:
+            print("\nSELECT * FROM TB_HEAP WHERE " + colName + " in (" + values + ");\n\n")
+        else:
+            if secondValuePresent:
+                print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + " AND " + secondColName + "=" + secondValue + ";\n\n")
+            else:
+                print("\nSELECT * FROM TB_HEAP WHERE " + colName + " = " + value + ";\n\n")
+
+    currentRegistry= 0#busca linear, sempre começamos do primeiro
+    results = []
+    while not (registryFound or endOfFile):
+        currentBlock = aux.FetchBlock2(aux.HashPath, currentRegistry, customRegistrySize)#pega 5 registros a partir do registro atual
+        if currentBlock == []:
+            endOfFile = True
+            break
+        
+        #mais um bloco varrido
+        numberOfBlocksUsed +=1
+                      
+        for i in range(len(currentBlock)):
+            if (not valueIsArray and ((not secondValuePresent and currentBlock[i][columnIndex] == value) or (secondValuePresent and currentBlock[i][columnIndex]==value and currentBlock[i][secondColumnIndex]==secondValue) ) ) or (valueIsArray and currentBlock[i][columnIndex] in value):
+                print("Result found in registry " + str(currentRegistry+i) + "!")
+                results += [currentBlock[i]]
+                if singleRecordSelection:
+                    registryFound = True
+                    break
+        #se não é EOF e não encontrou registro, repete operação com outro bloco
+        currentRegistry +=aux.blockSize
+        
+    if results == []:
+        if valueIsArray:
+            print("Não foi encontrado registro com "+colName+ " in (" + values +")")
+        else:
+            print("Não foi encontrado registro com valor " +colName+ " = " + value)
+        
+    else:
+        print("Results found: \n")
+        for result in results:
+            print(result)
+            print("\n")
+        
+    print("End of search.")
+    print("Number of blocks fetched: " + str(numberOfBlocksUsed))
+    return results
 
 ###################################################################################
 ############################ HASH - INSERT FUNCTIONS ##############################
