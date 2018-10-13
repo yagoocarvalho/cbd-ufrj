@@ -26,6 +26,9 @@ SPPath = CandidatesFilePath + "SP.csv"
 RJPath = CandidatesFilePath + "RJ.csv"
 MGPath = CandidatesFilePath + "MG.csv"
 RSPath = CandidatesFilePath + "RS.csv"
+DFPath = CandidatesFilePath + "DF.csv"
+PRPath = CandidatesFilePath + "PR.csv"
+
 
 #caminho dos arquivos 
 BDFilePath = "BD/"
@@ -142,6 +145,12 @@ def ReadFirstRegistriesFromCSV(CSVFilePath, numberOfRegistriesToRead):
         valuesToLoad[i]=string
     return valuesToLoad[:numberOfRegistriesToRead]
 
+    #Le os primeiros N registros e retorna os mesmos já preparados para inserção
+def ReadFirstRegistriesFromCSVList(CSVFilePath, numberOfRegistriesToRead):
+    #Lê do CSV e preenche os registros com enchimento para criar o tamanho fixo
+    valuesToLoad = PadRegistries(ReadFromFile(CSVFilePath))
+    return valuesToLoad[:numberOfRegistriesToRead]
+
 #Lê o arquivo desejado e retorna uma lista com todos os registros relevantes do mesmo
 #lista retornada sera usada para construir nossos proprios arquivos
 def ReadFromFile(csvFilePath):
@@ -226,7 +235,7 @@ def MakeHEADString(headType, numRegistries):
     string += "Schema: "
     for key, value in dicColHeaderType.items():
         string += key + "-" + value + "|"
-    string += "Number of registries: " + str(numRegistries) + "\n"
+    string += "\nNumber of registries: " + str(numRegistries) + "\n"
     
     return string
 
@@ -241,7 +250,7 @@ def MakeHEAD(headPath, headType, numRegistries):
     string += "Schema: "
     for key, value in dicColHeaderType.items():
         string += key + "-" + value + "|"
-    string += "Number of registries: " + str(numRegistries) + "\n"
+    string += "\nNumber of registries: " + str(numRegistries) + "\n"
     file.write(string)
     #return string
 
