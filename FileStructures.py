@@ -660,13 +660,6 @@ def HashSelectRecord(searchKeys, goodSearchKeys):
 
     return registryList
 
-    
-
-
-
-
-
-
 #colName = Desired column of the query (SEE LISTS ABOVE FOR COL NAMES)
 #value = desired value
 #SQL Format: Select * from HeapTable WHERE colName = value
@@ -788,7 +781,6 @@ def HashInsertRecord(registry):
         # Re-write block to the file
         hashFile.seek(startingOffset + (freeBlockIndex * aux.blockSize * (aux.registrySize - 1)))
         hashFile.write(str(currentBlock).encode("utf-8"))
-        
         
 ###################################################################################
 ############################ HASH - DELETE FUNCTIONS ##############################
