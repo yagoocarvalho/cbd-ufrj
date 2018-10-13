@@ -10,7 +10,7 @@ import csv
 import time
 import datetime
 import fileinput
-import unidecode
+#import unidecode
 
 
 
@@ -25,6 +25,7 @@ CandidatesFilePath = "data/consulta_cand_2018_"
 SPPath = CandidatesFilePath + "SP.csv"
 RJPath = CandidatesFilePath + "RJ.csv"
 MGPath = CandidatesFilePath + "MG.csv"
+RSPath = CandidatesFilePath + "RS.csv"
 
 #caminho dos arquivos 
 BDFilePath = "BD/"
@@ -129,6 +130,18 @@ def PadString(stringToPad, totalSizeOfField):
     return tmp        
 
 
+#Le os primeiros N registros e retorna os mesmos já preparados para inserção
+def ReadFirstRegistriesFromCSV(CSVFilePath, numberOfRegistriesToRead):
+    #Lê do CSV e preenche os registros com enchimento para criar o tamanho fixo
+    valuesToLoad = PadRegistries(ReadFromFile(CSVFilePath))
+    
+    for i in range(numberOfRegistriesToRead):
+        string = ""
+        for j in range(len(maxColSizesList)):
+            string+=valuesToLoad[i][j]
+        valuesToLoad[i]=string
+    return valuesToLoad[:numberOfRegistriesToRead]
+
 #Lê o arquivo desejado e retorna uma lista com todos os registros relevantes do mesmo
 #lista retornada sera usada para construir nossos proprios arquivos
 def ReadFromFile(csvFilePath):
@@ -148,11 +161,13 @@ def ReadFromFile(csvFilePath):
                         if i == relevantColsList[4]:
                             finalRow.insert(0, FillCPF(row[i]))
                         else:
-                            finalRow += [unidecode.unidecode(row[i])]
+                            finalRow += [(row[i])]
                 print(finalRow)
+                if finalRow[0] == "":
+                    return registros#chegou numa linha vazia, fim do arquivo
                 registros +=[finalRow]
                 lineCount+=1
-                if lineCount == 5000: return registros #limita tamanho p/ testes
+                #if lineCount == 5000: return registros #limita tamanho p/ testes
     return registros
 
 #pega uma lista de registros(matriz bidimensional) e para cada elemento, preenche os espaços faltantes
