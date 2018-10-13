@@ -134,7 +134,7 @@ def PadString(stringToPad, totalSizeOfField):
 def ReadFromFile(csvFilePath):
     lineCount = 0
     registros = []
-    with open(csvFilePath, 'r') as file:
+    with open(csvFilePath, 'r',  encoding="ISO-8859-1") as file:
         rows = csv.reader(file, delimiter = ";")
         for row in rows:
             if lineCount == 0 :#headers
