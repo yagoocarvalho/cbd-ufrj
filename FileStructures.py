@@ -6,7 +6,6 @@ Created on Sun Oct  7 14:48:57 2018
 """
 
 import os
-import fileinput
 import DBHelperFunctions as aux
 
 
@@ -39,6 +38,8 @@ def CreateHeapBD(csvFilePath):
         registryCounter +=1
     
     aux.UpdateHEADFile(aux.HeapHeadPath, "HEAP", registryCounter)
+    
+
 
 
 
@@ -162,6 +163,17 @@ def HeapInsertSingleRecord(listOfValues):
     aux.UpdateHEADFile(aux.HeapHeadPath, "Heap", aux.GetNumRegistries(aux.HeapHeadPath, aux.heapHeadSize)+1)
 
 
+def HeapMassInsertCSV(csvFilePath):
+    #Lê do CSV e preenche os registros com enchimento para criar o tamanho fixo
+    valuesToLoad = aux.PadRegistries(aux.ReadFromFile(csvFilePath))
+    
+    registryCounter = aux.GetNumRegistries(aux.HeapHeadPath, aux.heapHeadSize)
+    #inserimos valor a valor com a função de inserção da Heap
+    for row in valuesToLoad:
+        HeapInsertSingleRecord(row)
+        registryCounter +=1
+    
+    aux.UpdateHEADFile(aux.HeapHeadPath, "HEAP", registryCounter)
 
 
 ###################################################################################
