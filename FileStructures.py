@@ -37,6 +37,7 @@ def CreateHeapBD(csvFilePath):
         HeapInsertSingleRecord(row)
         registryCounter +=1
     
+    #print(registryCounter)
     aux.UpdateHEADFile(aux.HeapHeadPath, "HEAP", registryCounter)
     
 
@@ -730,7 +731,7 @@ def HashDeleteRecord(record):
 ################################### MAIN ##########################################
 ###################################################################################
 
-CreateHashBD(aux.RJPath)
+#CreateHashBD(aux.RJPath)
 
 #HashSelectRecord()
 #CreateOrderedBD(aux.RJPath, False)
