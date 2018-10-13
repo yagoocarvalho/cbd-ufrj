@@ -484,8 +484,20 @@ def CreateHashBD(csvFilePath):
         HashInsertRecord(registry)
         registryCounter +=1
 
-def CalculateHashKey(registry):
-    return int(registry.docNumber)
+
+def MassHashInsert(csvFilePath):
+    #Reads the csv file and create the records to be inserted, with fixed length
+    valuesToLoad = aux.PadRegistries(aux.ReadFromFile(csvFilePath))
+
+    registryCounter = 0
+    #inserimos valor a valor com a função de inserção do Hash
+    for row in valuesToLoad:
+        registry = Registry(row, False)
+        HashInsertRecord(registry)
+        registryCounter +=1
+
+def CalculateHashKey(key):
+    return int(key)
 
 def CalculateHashAddress(hashKey):
     return hashKey % aux.numberOfBuckets
@@ -579,12 +591,75 @@ class Registry:
     def __str__(self):
         return self.docNumber + self.state + self.jobType + self.candidateNumber + self.candidateName + self.candidateEmail + self.partyNumber + self.birthDate + self.gender + self.instructionLevel + self.maritalStatus + self.colorRace + self.ocupation
 
+    def Clear(self):
+        self.docNumber        = '\x00' * 11
+        self.state            = '\x00' * 2
+        self.jobType          = '\x00' * 2
+        self.candidateNumber  = '\x00' * 5
+        self.candidateName    = '\x00' * 70
+        self.candidateEmail   = '\x00' * 43
+        self.partyNumber      = '\x00' * 2
+        self.birthDate        = '\x00' * 10
+        self.gender           = '\x00' * 1
+        self.instructionLevel = '\x00' * 1
+        self.maritalStatus    = '\x00' * 1
+        self.colorRace        = '\x00' * 2
+        self.ocupation        = '\x00' * 3
+
+        self.sizeInBytes = len(str(self))
+
+
 ###################################################################################
 ############################ HASH - SELECT FUNCTIONS ##############################
 ###################################################################################
 
-def HashSelectRecord(searchKey):
-    pass
+def HashSelectRecord(searchKeys, goodSearchKeys):
+    registryList = []
+    for searchKey in searchKeys:
+        freeBlockIndex = -1
+        blocksVisitedCount = 0
+        #calculate hash key and address
+        hashKey     = CalculateHashKey(searchKey)
+        hashAddress = CalculateHashAddress(hashKey)
+
+        # Init the start offset
+        startingOffset = hashAddress * aux.bucketSize * aux.blockSize * (aux.registrySize - 1)
+
+        # Place the record the first block with enough space starting from the file
+        with open(aux.HashPath, 'r+b') as hashFile:
+            while freeBlockIndex == -1:
+                # Load the bucket
+                currentBucket = Bucket(hashFile, startingOffset)
+                freeBlockIndex = currentBucket.firstBlockWithEmptyRecordIndex
+                foundRegistry = False
+                # Search for the key in the registries in the bucket
+                for block in currentBucket.blocksList:
+                    blocksVisitedCount += 1
+                    for registry in block.registriesList:
+                        if (registry.docNumber == searchKey):
+                            registryList += [registry]
+                            foundRegistry = True
+                            print("Blocks visited for key {}: {}".format(searchKey, blocksVisitedCount))
+                            if (freeBlockIndex == -1):
+                                freeBlockIndex = 0
+                            break
+                    
+                    if (foundRegistry):
+                        break
+
+                if (not foundRegistry):
+                    # if registry was not found and the bucket is full, it may have occured overflow, so we search in the next bucket
+                    if (freeBlockIndex == -1):
+                        startingOffset += aux.bucketSize * aux.blockSize * (aux.registrySize - 1)
+                        pass
+                    # else, print an error and continue
+                    else:
+                        print("Record {} not found".format(searchKey))
+                        print("Blocks visited for key {}: {}".format(searchKey, blocksVisitedCount))
+                        pass
+
+    return registryList
+
     
 
 
@@ -685,7 +760,7 @@ def HashInsertRecord(registry):
     freeSpaceIndex = -1
 
     #calculate hash key and address
-    hashKey     = CalculateHashKey(registry)
+    hashKey     = CalculateHashKey(registry.docNumber)
     hashAddress = CalculateHashAddress(hashKey)
 
     # Init the start offset
@@ -712,27 +787,72 @@ def HashInsertRecord(registry):
         
         # Re-write block to the file
         hashFile.seek(startingOffset + (freeBlockIndex * aux.blockSize * (aux.registrySize - 1)))
-        writtenBytes = hashFile.write(str(currentBlock).encode("utf-8"))
-        if (writtenBytes != 765):
-            print("DEU RUIM!!!")
-        print (str(currentBlock))
-        print (writtenBytes)
+        hashFile.write(str(currentBlock).encode("utf-8"))
         
         
 ###################################################################################
 ############################ HASH - DELETE FUNCTIONS ##############################
 ###################################################################################
 
-def HashDeleteRecord(record):
-    pass
+def HashDeleteRecord(searchKeys, goodSearchKeys):
+    for searchKey in searchKeys:
+        freeBlockIndex = -1
+        blocksVisitedCount = 0
+        #calculate hash key and address
+        hashKey     = CalculateHashKey(searchKey)
+        hashAddress = CalculateHashAddress(hashKey)
+
+        # Init the start offset
+        startingOffset = hashAddress * aux.bucketSize * aux.blockSize * (aux.registrySize - 1)
+
+        # Place the record the first block with enough space starting from the file
+        with open(aux.HashPath, 'r+b') as hashFile:
+            while freeBlockIndex == -1:
+                # Load the bucket
+                currentBucket = Bucket(hashFile, startingOffset)
+                freeBlockIndex = currentBucket.firstBlockWithEmptyRecordIndex
+                foundRegistry = False
+                # Search for the key in the registries in the bucket
+                for i in range(len(currentBucket.blocksList)):
+                    block = currentBucket.blocksList[i]
+                    blocksVisitedCount += 1
+                    for registry in block.registriesList:
+                        if (registry.docNumber == searchKey):
+                            registry.Clear()
+                            foundRegistry = True
+                            # Re-write block to the file
+                            hashFile.seek(startingOffset + (i * aux.blockSize * (aux.registrySize - 1)))
+                            hashFile.write(str(block).encode("utf-8"))
+                            print("Blocks visited for key {}: {}".format(searchKey, blocksVisitedCount))
+                            if (freeBlockIndex == -1):
+                                freeBlockIndex = 0
+                            break
+                    
+                    if (foundRegistry):
+                        break
+
+                if (not foundRegistry):
+                    # if registry was not found and the bucket is full, it may have occured overflow, so we search in the next bucket
+                    if (freeBlockIndex == -1):
+                        startingOffset += aux.bucketSize * aux.blockSize * (aux.registrySize - 1)
+                        pass
+                    # else, print an error and continue
+                    else:
+                        print("Record {} not found".format(searchKey))
+                        print("Blocks visited for key {}: {}".format(searchKey, blocksVisitedCount))
+                        pass
 
 ###################################################################################
 ################################### MAIN ##########################################
 ###################################################################################
 
 CreateHashBD(aux.RJPath)
+MassHashInsert(aux.MGPath)
+MassHashInsert(aux.SPPath)
 
-#HashSelectRecord()
+
+
+
 #CreateOrderedBD(aux.RJPath, False)
 
 #print('-----')
