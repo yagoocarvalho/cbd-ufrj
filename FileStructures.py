@@ -448,12 +448,6 @@ def OrderedSelectSingleRecord(colName, value):
 ###################################################################################
 ##################################### HASH ########################################
 ###################################################################################
-# Bucket size in blocks 
-bucketSize      = 3 #10
-# Number of needed buckets
-numberOfBuckets = 2 #220
-
-hashTablePath = "BD/HashTable.txt"
 
 #Le o CSV e cria o arquivo do BD de Hash
 def CreateHashBD(csvFilePath):
@@ -467,7 +461,7 @@ def CreateHashBD(csvFilePath):
     
     # Create empty file to reserve disk space
     with open(aux.HashPath, 'wb') as hashFile:
-        hashFile.seek((bucketSize * numberOfBuckets * aux.blockSize * 153) - 1)
+        hashFile.seek((aux.bucketSize * aux.numberOfBuckets * aux.blockSize * (aux.registrySize -1)) - 1)
         hashFile.write(b'\0')
     
     # Create HEAD to File
@@ -484,28 +478,47 @@ def CalculateHashKey(registry):
     return int(registry.docNumber)
 
 def CalculateHashAddress(hashKey):
-    return hashKey % numberOfBuckets
+    return hashKey % aux.numberOfBuckets
     
+def FetchBlockBytes(hashFile, startOffset):
+    hashFile.seek(startOffset)
+    return hashFile.read((aux.blockSize * (aux.registrySize -1)))
+
+class Bucket:
+    def __init__(self, hashFile, startOffset):
+        self.blocksList = []
+        for i in range(startOffset, startOffset + aux.bucketSize * aux.blockSize * (aux.registrySize -1) - 1, aux.blockSize * (aux.registrySize -1)):
+            self.blocksList += [Block(FetchBlockBytes(hashFile, i))]
+        self.firstBlockWithEmptyRecordIndex = self.__FirstBlockWithEmptyRecordIndex()
+
+    def __FirstBlockWithEmptyRecordIndex(self):
+        for i in range(len(self.blocksList)):
+            if (self.blocksList[i].firstEmptyRecordIndex != -1):
+                return i
+        
+        return -1
+
 class Block:
 
     def __init__(self, registriesBytes):
-        self.listOfRegistries = []
+        self.registriesList = []
         #iterate over registries bytes
-        for b in range(0, len(registriesBytes), 153):
-            print(registriesBytes[b])
-            self.listOfRegistries += [Registry(registriesBytes[b : b + 153], True)]
+        for b in range(0, len(registriesBytes), (aux.registrySize -1)):
+            self.registriesList += [Registry(registriesBytes[b : b + (aux.registrySize -1)], True)]
+
+        self.firstEmptyRecordIndex = self.__FirstEmptyRecordIndex()
 
     def SizeInBytes(self):
         sizeInBytes = 0
-        for registry in self.listOfRegistries:
+        for registry in self.registriesList:
             sizeInBytes += registry.sizeInBytes
 
         return sizeInBytes
 
-    def FirstEmptyRecordIndex(self):
-        for i in range(len(self.listOfRegistries)):
+    def __FirstEmptyRecordIndex(self):
+        for i in range(len(self.registriesList)):
             try:
-                if (self.listOfRegistries[i].docNumber.index('\x00') >= 0):
+                if (self.registriesList[i].docNumber.index('\x00') >= 0):
                     return i
             except:
                 pass
@@ -513,7 +526,7 @@ class Block:
 
     def __str__(self):
         str_block = ""
-        for registry in self.listOfRegistries:
+        for registry in self.registriesList:
             str_block += str(registry)
         
         return str_block
@@ -560,14 +573,16 @@ class Registry:
 ############################ HASH - SELECT FUNCTIONS ##############################
 ###################################################################################
 
-def HashSelectRecord():
+def HashSelectRecord(searchKey):
     pass
+    
 
 ###################################################################################
 ############################ HASH - INSERT FUNCTIONS ##############################
 ###################################################################################
 
 def HashInsertRecord(registry):
+    freeBlockIndex = -1
     freeSpaceIndex = -1
 
     #calculate hash key and address
@@ -575,33 +590,36 @@ def HashInsertRecord(registry):
     hashAddress = CalculateHashAddress(hashKey)
 
     # Init the start offset
-    startingOffset = bucketSize * hashAddress
+    startingOffset = hashAddress * aux.bucketSize * aux.blockSize * (aux.registrySize - 1)
 
     # Place the record the first block with enough space starting from the file
     with open(aux.HashPath, 'r+b') as hashFile:
-        # Search for the right position
-        hashFile.seek(startingOffset)
-        # Check if there is a colision
-        currentBlock = Block(hashFile.read((aux.blockSize * 153)))
-        
-        # Search for the first free space in the block
-        freeSpaceIndex = currentBlock.FirstEmptyRecordIndex()
+        while freeBlockIndex == -1:
+            # Load the bucket
+            currentBucket = Bucket(hashFile, startingOffset)
+            freeBlockIndex = currentBucket.firstBlockWithEmptyRecordIndex
+            # Check if there is a collision
+            if (freeBlockIndex == -1):
+                #If the collision happened a lot and the bucket is full, load the next bucket
+                startingOffset += aux.bucketSize * aux.blockSize * (aux.registrySize - 1)
+                pass
+            else:
+                # Select block
+                currentBlock = currentBucket.blocksList[freeBlockIndex]
 
-        if (freeSpaceIndex >= 0):
-            # Set the cursor to the beginig of the block again
-            hashFile.seek(startingOffset)
-            # Place the new record in the right place in the block
-            currentBlock.listOfRegistries[freeSpaceIndex] = registry
-        else:
-            #If we have bucket overflow, change the startting offset to the next bucket and try again in the next bucket
-            startingOffset += (aux.blockSize * 153)
+                # Set registry to rigth block
+                freeSpaceIndex = currentBlock.firstEmptyRecordIndex
+                currentBlock.registriesList[freeSpaceIndex] = registry
         
         # Re-write block to the file
-        writtenSize = hashFile.write(str(currentBlock).encode('utf-8'))
-        print(writtenSize)
-
-
-
+        hashFile.seek(startingOffset + (freeBlockIndex * aux.blockSize * (aux.registrySize - 1)))
+        writtenBytes = hashFile.write(str(currentBlock).encode("utf-8"))
+        if (writtenBytes != 765):
+            print("DEU RUIM!!!")
+        print (str(currentBlock))
+        print (writtenBytes)
+        
+        
 ###################################################################################
 ############################ HASH - DELETE FUNCTIONS ##############################
 ###################################################################################

@@ -10,6 +10,7 @@ import csv
 import time
 import datetime
 import fileinput
+import unidecode
 
 
 
@@ -52,7 +53,11 @@ orderedHeadSize = 5
 #Tamanho do head do hash(em linhas)
 hashHeadSize = 5
 
+#Tamanho do bucket do hash (em blocos)
+bucketSize = 10
 
+#Quantidade máxima de buckets
+numberOfBuckets = 220
 
 #Tamanhos maximos de cada atributo(for reference mostly)
 dicColunaTamanhoMax = {
@@ -143,11 +148,11 @@ def ReadFromFile(csvFilePath):
                         if i == relevantColsList[4]:
                             finalRow.insert(0, FillCPF(row[i]))
                         else:
-                            finalRow += [row[i]]
+                            finalRow += [unidecode.unidecode(row[i])]
                 print(finalRow)
                 registros +=[finalRow]
                 lineCount+=1
-                if lineCount == 15: return registros #limita tamanho p/ testes
+                if lineCount == 5000: return registros #limita tamanho p/ testes
     return registros
 
 #pega uma lista de registros(matriz bidimensional) e para cada elemento, preenche os espaços faltantes
