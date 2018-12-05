@@ -84,12 +84,56 @@ def JoinNestedLoop(orderedPK = True, orderedFK = False):
 
 
 
-def MergeJoin():
+def MergeJoin(orderedPK = True, orderedFK = True):
+    start = dt.datetime.now()
+    blocksFetched = 0 #Contador de blocos, diz quantos blocos de X registros foram "acessados" da memória
+    leftRegistriesCount = 1
+    rightRegistriesCount = 1
+    matches = 0
     
-    return 0
+    #Arquivos que usaremos no JOIN
+    PKFile = ""
+    FKFile = ""
+    if(orderedPK):
+        PKFile = tg.PKOrderedFileName
+    else:
+        PKFile = tg.PKUnorderedFileName
+    
+    if(orderedFK):
+        FKFile = tg.FKOrderedFileName
+    else:
+        FKFile = tg.FKUnorderedFileName
+    with open(FKFile) as rightTable:
+        with open(PKFile) as leftTable:
+            leftRecord = leftTable.readline().split(tg.fieldSeparator)
+            rightRecord = rightTable.readline().split(tg.fieldSeparator)
+            while True:
+                if leftRecord[0] == rightRecord[1]:
+                    matches += 1
+                    joined = leftRecord + rightRecord
+                if int(leftRecord[0]) < int(rightRecord[1]):
+                    ln = leftTable.readline()
+                    if ln == "":
+                        break
+                    leftRegistriesCount += 1
+                    leftRecord = ln.split(tg.fieldSeparator)
+                else: 
+                    ln = rightTable.readline()
+                    if ln == "":
+                        break
+                    rightRegistriesCount += 1
+                    rightRecord = ln.split(tg.fieldSeparator)
+    end = dt.datetime.now()   
+
+    print ("Blocks fetched: " + str(m.ceil(leftRegistriesCount/blockSize) + m.ceil(leftRegistriesCount/blockSize)))
+    print ("Total joined registers: " + str(matches))
+    print ("Time taken: " + str((end-start).total_seconds()) + "s")
 
 
 
 
 def main():
-    JoinNestedLoop()
+    #JoinNestedLoop()
+    MergeJoin()
+
+main()
