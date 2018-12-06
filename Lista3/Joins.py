@@ -32,7 +32,7 @@ def JoinNestedLoop(orderedPK = True, orderedFK = False):
     blocksFetched = 0 #Contador de blocos, diz quantos blocos de X registros foram "acessados" da memória
     
     
-    #Para a tabela da esquerda, acessaremos TODOS os registros, então já podemos saber quantos blocos de memória acessaremos
+    #Para a tabela da esquerda, acessaremos TODOS os registros ordenadamente, então já podemos saber quantos blocos de memória acessaremos
     #Simplesmente dividimos seu número de registros pelo tamanho de um bloco
     blocksFetched += m.ceil(float(tg.numberOfRegistries)/blockSize)#Ceiling pois pode sobrar espaço em algum bloco
     
@@ -125,15 +125,89 @@ def MergeJoin(orderedPK = True, orderedFK = True):
                     rightRecord = ln.split(tg.fieldSeparator)
     end = dt.datetime.now()   
 
-    print ("Blocks fetched: " + str(m.ceil(leftRegistriesCount/blockSize) + m.ceil(leftRegistriesCount/blockSize)))
+    print ("Número de blocos acessados: " + str(m.ceil(leftRegistriesCount/blockSize) + m.ceil(leftRegistriesCount/blockSize)))
     print ("Total joined registers: " + str(matches))
-    print ("Time taken: " + str((end-start).total_seconds()) + "s")
+    print ("Tempo de execução: " + str((end-start).total_seconds()) + "s")
+
+
+
+
+
+
+
+#Tanto PK quanto FK são consideradas falsas por default;
+def HashJoin(orderedPK = False, orderedFK = False):
+    lineSize = tg.registrySize + 2 #Tamanho de uma linha no arquivo linha, inclui o pulo de linha(funciona com 2 chars em Windows)
+    start = dt.datetime.now()
+    blocksFetched = 0 #blocos de memória vistos
+    hashTable = {} #Tabela de hash a ser usada
+
+    print("Line size: " + str(lineSize))
+    #Arquivos que usaremos no JOIN
+    PKFile = ""
+    FKFile = ""
+    if(orderedPK):
+        PKFile = tg.PKOrderedFileName
+    else:
+        PKFile = tg.PKUnorderedFileName
+    
+    if(orderedFK):
+        FKFile = tg.FKOrderedFileName
+    else:
+        FKFile = tg.FKUnorderedFileName
+    
+    #Para a tabela da esquerda, acessaremos TODOS os registros ordenadamente, então já podemos saber quantos blocos de memória acessaremos
+    #Simplesmente dividimos seu número de registros pelo tamanho de um bloco
+    blocksFetched += m.ceil(float(tg.numberOfRegistries)/blockSize)#Ceiling pois pode sobrar espaço em algum bloco
+    
+    
+    
+    lineCounter = 0 #anota as linhas de cada registro
+    with open (FKFile) as hashTableBuilderFile:
+        for registries in hashTableBuilderFile:
+            # "primary_key|foreign_key|data"
+            registry = registries.split(tg.fieldSeparator)
+            hashTable[registry[1]] = lineCounter #para cada registro, criamos um dicionário associando sua chave primária à sua linha
+            lineCounter += 1 
+            
+            
+    matches = 0
+    #abrimos as duas tabelas
+    with open(FKFile) as rightTable:
+        with open(PKFile) as leftTable:
+            #Para cada linha na tabela PK, pegamos sua chave e usamos para encontrar a posição da respectiva linha na tabela FK, a partir da tabela hash
+            for line in leftTable:
+                #print("\n\nLeft line: " + line) 
+                leftRecord = line.split(tg.fieldSeparator)
+                position = hashTable[leftRecord[0]] * lineSize #vai para a posição absoluta do início do respectivo registro em FK
+                #print("Position to seek: " + str(position))
+                rightTable.seek(position, 0)#vai para a posição absoluta do início do respectivo registro em FK
+                rightLine = rightTable.read(tg.registrySize)
+                #print("Right line: " + rightLine)
+                rightRecord = rightLine.split(tg.fieldSeparator)#na teoria, após o cálculo da posição absoluta, ...
+                blocksFetched+=1 #... o sistema deve buscar o registro em memória, logo isso ocasiona um bloco a mais coletado de memória(ainda que com um só registro)
+                rightTable.seek(0, 0)
+                if leftRecord[0] == rightRecord[1]:
+                    matches += 1
+                    joined = leftRecord + rightRecord
+                    
+                else:
+                    print("ERRO FATAL. SEMPRE DEVERIA HAVER UM MATCH.")
+                    return 
+    end = dt.datetime.now()   
+        
+    print("Registros com match: " + str(matches))
+    print("Número total de blocos acessados: " + str(blocksFetched))
+    print("Tempo de execução: " + str((end-start).total_seconds()) + "s")
+
+
 
 
 
 
 def main():
     #JoinNestedLoop()
-    MergeJoin()
-
+    #MergeJoin()
+    HashJoin()
+    
 main()
