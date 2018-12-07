@@ -5,7 +5,7 @@ Created on Mon Dec  3 23:18:55 2018
 @author: BConfessor
 """
 
-#from BTrees.OOBTree import OOBTree
+from BTrees.OOBTree import OOBTree
 import datetime as dt
 import TableGen as tg
 import math as m
@@ -130,11 +130,6 @@ def MergeJoin(orderedPK = True, orderedFK = True):
     print ("Tempo de execução: " + str((end-start).total_seconds()) + "s")
 
 
-
-
-
-
-
 #Tanto PK quanto FK são consideradas falsas por default;
 def HashJoin(orderedPK = False, orderedFK = False):
     lineSize = tg.registrySize + 2 #Tamanho de uma linha no arquivo linha, inclui o pulo de linha(funciona com 2 chars em Windows)
@@ -202,12 +197,59 @@ def HashJoin(orderedPK = False, orderedFK = False):
 
 
 
+def BTreeJoin(orderedPK = False, orderedFK = False):
+    
+    #Arquivos que usaremos no JOIN
+    PKFile = ""
+    FKFile = ""
+    if(orderedPK):
+        PKFile = tg.PKOrderedFileName
+    else:
+        PKFile = tg.PKUnorderedFileName
+    
+    if(orderedFK):
+        FKFile = tg.FKOrderedFileName
+    else:
+        FKFile = tg.FKUnorderedFileName
+    
+    #Carregando o indice da BTree
+    btree = OOBTree() 
 
+    lineCounter = 0
+    with open (FKFile) as f:
+        for line in f:
+            l = line.split(tg.fieldSeparator)
+            btree.update({l[1]:lineCounter})
+            lineCounter += 1
+
+    # checking the size
+    print ("Btree size: " + str(len(btree)))
+
+    lineSize = tg.registrySize + 2
+    start = dt.datetime.now()
+    matches = 0
+    with open(FKFile) as right:
+        with open(PKFile) as left:
+            for line in left:
+                leftRegistry = line.split(tg.fieldSeparator)
+                position = btree[leftRegistry[0]] * lineSize
+                right.seek(position)
+                rightRegistry = right.read(tg.registrySize).split(tg.fieldSeparator)
+                if leftRegistry[0] == rightRegistry[1]:
+                    matches += 1
+                    joined = leftRegistry + rightRegistry
+                else:
+                    print ("This should never happen!")
+    end = dt.datetime.now()   
+    
+    print ("Total joined registers: " + str(matches))
+    print ("Time taken: " + str((end-start).total_seconds()) + "s")
 
 
 def main():
     #JoinNestedLoop()
     #MergeJoin()
-    HashJoin()
+    #HashJoin()
+    BTreeJoin()
     
 main()
